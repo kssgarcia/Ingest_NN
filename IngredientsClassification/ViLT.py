@@ -17,7 +17,7 @@ def get_images_paths(path):
 data = pd.read_csv("dataset/full_dataset.csv")
 directory_path = "./Recipes10T"
 
-labels_to_images = {name: get_images_paths(Path(f"{directory_path}/test/"+name).resolve()) for name in os.listdir(f"{directory_path}/test") if os.path.isdir(os.path.join(f"{directory_path}/test", name))}
+labels_to_images = {name: get_images_paths(Path(f"{directory_path}/train/"+name).resolve()) for name in os.listdir(f"{directory_path}/train") if os.path.isdir(os.path.join(f"{directory_path}/train", name))}
 
 # Flatten the dataset for DataLoader
 images_paths = []
@@ -27,7 +27,7 @@ for title, paths in labels_to_images.items():
     matching = data[data['title'] == title]
     if matching.empty: continue
     for path in paths:
-        desc = f"A food called {title}. Made with {matching['NER'].values[0]}"
+        desc = f"A food called {title}. Made with {matching['NER'].values[0]}. With a recipe {matching['ingredients'].values[0]}"
         images_paths.append(path)
         descriptions.append(desc.replace("'", "").replace('"', "").replace("[", "").replace("]", "").replace("-", ""))
 
@@ -46,8 +46,11 @@ val_data = dataset_df.iloc[val_indices]
 
 # Setup model and processor
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-processor = AlignProcessor.from_pretrained("kakaobrain/align-base")
-model = AlignModel.from_pretrained("kakaobrain/align-base")
+
+from transformers import ViltProcessor, ViltModel
+
+processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-mlm")
+model = ViltModel.from_pretrained("dandelin/vilt-b32-mlm")
 
 # Freeze all parameters except for the last few layers
 for param in model.parameters():
