@@ -2,4 +2,6 @@ models/
 IngredientsClassification/dataset
 IngredientsClassification/Recipes10T
 IngredientsClassification/results
+IngredientsClassification/testRecipes
+IngredientsClassification/FoodClassyScrapping
 FoodnotFood/Dataset
