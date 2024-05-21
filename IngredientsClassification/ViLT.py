@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import os
 from tqdm import tqdm
-from transformers import CLIPModel, CLIPProcessor
+from torchvision import transforms
 
 def get_images_paths(path): 
     return list(path.rglob('*.jpg')) + list(path.rglob('*.png'))
@@ -28,6 +28,7 @@ for title, paths in labels_to_images.items():
     if matching.empty: continue
     for path in paths:
         desc = f"A food called {title}. Made with {matching['NER'].values[0]}. With a recipe {matching['ingredients'].values[0]}"
+        # desc = f"A food called {title}."
         images_paths.append(path)
         descriptions.append(desc.replace("'", "").replace('"', "").replace("[", "").replace("]", "").replace("-", ""))
 
@@ -47,21 +48,11 @@ val_data = dataset_df.iloc[val_indices]
 # Setup model and processor
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-from transformers import ViltProcessor, ViltModel
+from transformers import ViltProcessor, ViltForQuestionAnswering
 
-processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-mlm")
-model = ViltModel.from_pretrained("dandelin/vilt-b32-mlm")
+processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
+model = ViltForQuestionAnswering.from_pretrained("dandelin/vilt-b32-finetuned-vqa").to(device)
 
-# Freeze all parameters except for the last few layers
-for param in model.parameters():
-    param.requires_grad = False
-
-# Unfreeze the parameters of the last transformer block
-for param in model.text_model.encoder.layers[-5].parameters():
-    param.requires_grad = True
-
-for param in model.vision_model.encoder.layers[-5].parameters():
-    param.requires_grad = True
 
 class RecipeDataset(Dataset):
     def __init__(self, data, root_dir):
@@ -76,7 +67,8 @@ class RecipeDataset(Dataset):
             idx = idx.tolist()
         
         img_name = os.path.join(self.root_dir, self.data.iloc[idx, 0])
-        image = Image.open(img_name).convert("RGB")
+        transform = transforms.Resize((224, 224))
+        image = transform(Image.open(img_name).convert("RGB"))
         text = self.data.iloc[idx, 1]
         
         return image, text
@@ -118,13 +110,11 @@ for epoch in range(epochs):
         
         # Forward pass
         outputs = model(**inputs)
-        logits_per_image = outputs.logits_per_image
-        logits_per_text = outputs.logits_per_text
+        logits = outputs.logits
 
         # Calculate loss
-        ground_truth = torch.arange(len(logits_per_image),dtype=torch.long,device=device)
-        loss = (torch.nn.functional.cross_entropy(logits_per_image, ground_truth) + 
-                torch.nn.functional.cross_entropy(logits_per_text, ground_truth)) / 2
+        ground_truth = torch.arange(len(logits), dtype=torch.long, device=device)
+        loss = torch.nn.functional.cross_entropy(logits, ground_truth)
 
         # Backward pass and optimization
         optimizer.zero_grad()
@@ -148,20 +138,18 @@ for epoch in range(epochs):
             
             # Forward pass
             outputs = model(**inputs)
-            logits_per_image = outputs.logits_per_image
-            logits_per_text = outputs.logits_per_text
+            logits = outputs.logits
 
             # Calculate loss
-            ground_truth = torch.arange(len(logits_per_image), device=device)
-            loss = (torch.nn.functional.cross_entropy(logits_per_image, ground_truth) + 
-                    torch.nn.functional.cross_entropy(logits_per_text, ground_truth)) / 2
+            ground_truth = torch.arange(len(logits), device=device)
+            loss = torch.nn.functional.cross_entropy(logits, ground_truth)
 
             val_loss += loss.item()
 
             # Calculate accuracy
-            preds = torch.argmax(logits_per_image, dim=1)
+            preds = torch.argmax(logits, dim=1)
             correct_predictions += (preds == ground_truth).sum().item()
-            total_samples += len(logits_per_image)
+            total_samples += len(logits)
 
         avg_val_loss = val_loss / len(val_loader)
         accuracy = correct_predictions / total_samples
@@ -170,8 +158,8 @@ for epoch in range(epochs):
         print(f"Epoch {epoch+1}/{epochs} - Validation Loss: {avg_val_loss:.4f}, Accuracy: {accuracy:.4f}")
 
 # Save model and optimizer state after each epoch
-model_save_path = f"./trains/clip_model.pth"
-optimizer_save_path = f"./trains/optimizer.pth"
+model_save_path = f"./trains/vilt_model.pth"
+optimizer_save_path = f"./trains/vilt_optimizer.pth"
 torch.save(model.state_dict(), model_save_path)
 torch.save(optimizer.state_dict(), optimizer_save_path)
 print(f"Model and optimizer state saved after epoch {epoch+1}")

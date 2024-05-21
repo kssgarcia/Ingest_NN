@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import os
 from tqdm import tqdm
-from transformers import CLIPModel, CLIPProcessor
+from transformers import AutoProcessor, AutoModel
 
 def get_images_paths(path): 
     return list(path.rglob('*.jpg')) + list(path.rglob('*.png'))
@@ -46,18 +46,18 @@ val_data = dataset_df.iloc[val_indices]
 
 # Setup model and processor
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
-processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+model = AutoModel.from_pretrained("google/siglip-base-patch16-224").to(device)
+processor = AutoProcessor.from_pretrained("google/siglip-base-patch16-224")
 
 # Freeze all parameters except for the last few layers
 for param in model.parameters():
     param.requires_grad = False
 
 # Unfreeze the parameters of the last transformer block
-for param in model.text_model.encoder.layers[-5].parameters():
+for param in model.text_model.encoder.layers[-2:].parameters():
     param.requires_grad = True
 
-for param in model.vision_model.encoder.layers[-5].parameters():
+for param in model.vision_model.encoder.layers[-2:].parameters():
     param.requires_grad = True
 
 class RecipeDataset(Dataset):
@@ -166,12 +166,12 @@ for epoch in range(epochs):
         val_accuracies.append(accuracy)
         print(f"Epoch {epoch+1}/{epochs} - Validation Loss: {avg_val_loss:.4f}, Accuracy: {accuracy:.4f}")
 
-# Save model and optimizer state after each epoch
-model_save_path = f"./trains/clip_model.pth"
-optimizer_save_path = f"./trains/clip_optimizer.pth"
-torch.save(model.state_dict(), model_save_path)
-torch.save(optimizer.state_dict(), optimizer_save_path)
-print(f"Model and optimizer state saved after epoch {epoch+1}")
+    # Save model and optimizer state after each epoch
+    model_save_path = f"./trains/siglip_model.pth"
+    optimizer_save_path = f"./trains/siglip_optimizer.pth"
+    torch.save(model.state_dict(), model_save_path)
+    torch.save(optimizer.state_dict(), optimizer_save_path)
+    print(f"Model and optimizer state saved after epoch {epoch+1}")
 
 print("Training complete.")
 
@@ -185,3 +185,33 @@ plt.title('Training and Validation Loss')
 plt.legend()
 plt.savefig('./trains/training_final_parameters.png')
 plt.show()
+
+
+
+# %%
+
+
+
+
+
+from PIL import Image
+import requests
+from transformers import AutoProcessor, AutoModel
+import torch
+
+model = AutoModel.from_pretrained("google/siglip-base-patch16-224")
+processor = AutoProcessor.from_pretrained("google/siglip-base-patch16-224")
+
+url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+image = Image.open(requests.get(url, stream=True).raw)
+
+texts = ["a photo of 2 cats", "a photo of 2 dogs"]
+# important: we pass `padding=max_length` since the model was trained with this
+inputs = processor(text=texts, images=image, padding="max_length", return_tensors="pt")
+
+with torch.no_grad():
+    outputs = model(**inputs)
+
+logits_per_image = outputs.logits_per_image
+probs = torch.sigmoid(logits_per_image) # these are the probabilities
+print(f"{probs[0][0]:.1%} that image 0 is '{texts[0]}'")
