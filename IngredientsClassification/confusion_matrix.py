@@ -47,11 +47,11 @@ val_data = dataset_df.iloc[val_indices]
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 from transformers import CLIPProcessor, CLIPModel
-model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
 processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
 # from transformers import AutoProcessor, AutoModel
-# model = AutoModel.from_pretrained("google/siglip-base-patch16-224")
+# model = AutoModel.from_pretrained("google/siglip-base-patch16-224").to(device)
 # processor = AutoProcessor.from_pretrained("google/siglip-base-patch16-224")
 
 # Freeze all parameters except for the last few layers
