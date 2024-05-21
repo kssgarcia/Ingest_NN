@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import os
 from tqdm import tqdm
-from transformers import CLIPModel, CLIPProcessor
 
 def get_images_paths(path): 
     return list(path.rglob('*.jpg')) + list(path.rglob('*.png'))
@@ -46,8 +45,14 @@ val_data = dataset_df.iloc[val_indices]
 
 # Setup model and processor
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
+
+from transformers import CLIPProcessor, CLIPModel
+model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+# from transformers import AutoProcessor, AutoModel
+# model = AutoModel.from_pretrained("google/siglip-base-patch16-224")
+# processor = AutoProcessor.from_pretrained("google/siglip-base-patch16-224")
 
 # Freeze all parameters except for the last few layers
 for param in model.parameters():
@@ -91,26 +96,19 @@ val_dataset = RecipeDataset(val_data, directory_path)
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, collate_fn=collate_fn)
 val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, collate_fn=collate_fn)
 
-# Set up optimizer
-total_params = sum(p.numel() for p in model.parameters())
-trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+# Ensure the model is in evaluation mode
+model.eval()
 
-print("Total number of parameters: ", total_params)
-print("Number of trainable parameters: ", trainable_params)
+# Initialize lists to collect predictions and ground truths
+all_preds = []
+all_labels = []
 
-optimizer = torch.optim.Adam(model.parameters(), lr=5e-5)
-
-# Initialize lists to track metrics
-train_losses = []
-val_losses = []
-val_accuracies = []
-
-# Training loop
-epochs = 25
-for epoch in range(epochs):
-    model.train()
-    total_loss = 0.0
-    for batch in tqdm(train_loader, desc=f"Training Epoch {epoch+1}/{epochs}"):
+# Validation loop
+val_loss = 0.0
+correct_predictions = 0
+total_samples = 0
+with torch.no_grad():
+    for batch in tqdm(val_loader, desc="Running Validation"):
         inputs = {k: v.to(device) for k, v in batch.items()}
         
         # Forward pass
@@ -119,69 +117,52 @@ for epoch in range(epochs):
         logits_per_text = outputs.logits_per_text
 
         # Calculate loss
-        ground_truth = torch.arange(len(logits_per_image),dtype=torch.long,device=device)
+        ground_truth = torch.arange(len(logits_per_image), device=device)
         loss = (torch.nn.functional.cross_entropy(logits_per_image, ground_truth) + 
                 torch.nn.functional.cross_entropy(logits_per_text, ground_truth)) / 2
 
-        # Backward pass and optimization
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        val_loss += loss.item()
 
-        total_loss += loss.item()
+        # Calculate accuracy
+        preds = torch.argmax(logits_per_image, dim=1)
+        correct_predictions += (preds == ground_truth).sum().item()
+        total_samples += len(logits_per_image)
 
-    avg_train_loss = total_loss / len(train_loader)
-    train_losses.append(avg_train_loss)
-    print(f"Epoch {epoch+1}/{epochs} - Training Loss: {avg_train_loss:.4f}")
+        # Collect predictions and ground truths
+        all_preds.extend(preds.cpu().numpy())
+        all_labels.extend(ground_truth.cpu().numpy())
 
-    # Validation loop
-    model.eval()
-    val_loss = 0.0
-    correct_predictions = 0
-    total_samples = 0
-    with torch.no_grad():
-        for batch in tqdm(val_loader, desc=f"Validation Epoch {epoch+1}/{epochs}"):
-            inputs = {k: v.to(device) for k, v in batch.items()}
-            
-            # Forward pass
-            outputs = model(**inputs)
-            logits_per_image = outputs.logits_per_image
-            logits_per_text = outputs.logits_per_text
+avg_val_loss = val_loss / len(val_loader)
+accuracy = correct_predictions / total_samples
+print(f"Validation Loss: {avg_val_loss:.4f}, Accuracy: {accuracy:.4f}")
 
-            # Calculate loss
-            ground_truth = torch.arange(len(logits_per_image), device=device)
-            loss = (torch.nn.functional.cross_entropy(logits_per_image, ground_truth) + 
-                    torch.nn.functional.cross_entropy(logits_per_text, ground_truth)) / 2
+# Creating a confusion matrix
+num_classes = max(max(all_preds), max(all_labels)) + 1
+confusion_matrix = torch.zeros(num_classes, num_classes, dtype=torch.int64)
 
-            val_loss += loss.item()
+for t, p in zip(all_labels, all_preds):
+    confusion_matrix[t, p] += 1
 
-            # Calculate accuracy
-            preds = torch.argmax(logits_per_image, dim=1)
-            correct_predictions += (preds == ground_truth).sum().item()
-            total_samples += len(logits_per_image)
+# Plotting the confusion matrix
+fig, ax = plt.subplots(figsize=(10, 10))
+im = ax.imshow(confusion_matrix, cmap='Blues')
 
-        avg_val_loss = val_loss / len(val_loader)
-        accuracy = correct_predictions / total_samples
-        val_losses.append(avg_val_loss)
-        val_accuracies.append(accuracy)
-        print(f"Epoch {epoch+1}/{epochs} - Validation Loss: {avg_val_loss:.4f}, Accuracy: {accuracy:.4f}")
+# Show all ticks and label them with the respective list entries
+ax.set_xticks(np.arange(num_classes))
+ax.set_yticks(np.arange(num_classes))
 
-    # Save model and optimizer state after each epoch
-    model_save_path = f"./trains/clip_model.pth"
-    optimizer_save_path = f"./trains/clip_optimizer.pth"
-    torch.save(model.state_dict(), model_save_path)
-    torch.save(optimizer.state_dict(), optimizer_save_path)
-    print(f"Model and optimizer state saved after epoch {epoch+1}")
+# Rotate the tick labels and set their alignment
+plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 
-    print("Training complete.")
+# Loop over data dimensions and create text annotations.
+for i in range(num_classes):
+    for j in range(num_classes):
+        text = ax.text(j, i, confusion_matrix[i, j].item(),
+                       ha="center", va="center", color="black")
 
-# Plotting the metrics
-plt.figure()
-plt.plot(range(1, epochs + 1), train_losses, label='Training Loss')
-plt.plot(range(1, epochs + 1), val_losses, label='Validation Loss')
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
-plt.title('Training and Validation Loss')
-plt.legend()
-plt.savefig('./trains/training_final_parameters.png')
+ax.set_title("Confusion Matrix")
+fig.tight_layout()
+plt.xlabel('Predicted Labels')
+plt.ylabel('True Labels')
+plt.savefig('./trains/siglip_confusion_matrix.png')
 plt.show()
