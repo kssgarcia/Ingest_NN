@@ -22,18 +22,6 @@ model.to('cuda' if torch.cuda.is_available() else 'cpu')
 # Set the model to evaluation mode
 model.eval()
 
-# Load and preprocess an image
-url = "https://assets.epicurious.com/photos/568eb0bf7dc604b44b5355ee/16:9/w_2560%2Cc_limit/rice.jpg"
-image = Image.open(requests.get(url, stream=True).raw)
-image = image.convert('RGB')
-
-import matplotlib.pyplot as plt
-
-# Plot the image
-plt.imshow(image)
-plt.axis('off')
-plt.show()
-
 # Load your data
 data = pd.read_csv("dataset/full_dataset.csv")
 directory_path = "./Recipes10T"
@@ -48,6 +36,20 @@ for title in labels:
     if matching.empty: continue
     desc = f"A food called {title}. Made with {matching['NER'].values[0]}. With a recipe {matching['ingredients'].values[0]}"
     descriptions.append(desc.replace("'", "").replace('"', "").replace("[", "").replace("]", "").replace("-", ""))
+
+# %%
+
+# Load and preprocess an image
+url = "https://www.unileverfoodsolutions.com.co/dam/global-ufs/mcos/NOLA/calcmenu/recipes/col-recipies/fruco-tomate-cocineros/HAMBURGUESA%201200x709.png"
+image = Image.open(requests.get(url, stream=True).raw)
+image = image.convert('RGB')
+
+import matplotlib.pyplot as plt
+
+# Plot the image
+plt.imshow(image)
+plt.axis('off')
+plt.show()
 
 # Process the image and text
 inputs = processor(text=descriptions, images=image, return_tensors="pt", padding=True, truncation=True).to(model.device)
