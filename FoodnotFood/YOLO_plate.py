@@ -21,6 +21,9 @@ model = YOLO("../models/bestDataNewonly.pt")
 results = model('./badpic.jpg', show=True, conf=0.7)
 print(results[0].boxes.xywh)  # print boxes
 # %%
+from ultralytics import YOLO
+
+model = YOLO("../models/old/bestDataNewonly.pt")
 
 results = model(source=1, show=True, conf=0.7)
 
