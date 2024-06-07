@@ -1,105 +1,110 @@
 # %%
-
-from roboflow import Roboflow
-rf = Roboflow(api_key="ZguoagGlFgLAffjKef27")
-project = rf.workspace("bri-institute-ns3xn").project("uascompvision")
-version = project.version(1)
-dataset = version.download("voc")
-
-
-# %%
 import tensorflow as tf
-import os
-import cv2
-import numpy as np
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 import matplotlib.pyplot as plt
 
-# Function to load and parse dataset
-def load_dataset(images_path, labels_path):
-    images = []
-    labels = []
-    
-    for image_file in os.listdir(images_path):
-        if image_file.endswith('.jpg'):
-            image_path = os.path.join(images_path, image_file)
-            label_file = image_file.replace('.jpg', '.txt')
-            label_path = os.path.join(labels_path, label_file)
-            
-            # Load image
-            image = cv2.imread(image_path)
-            image = cv2.resize(image, (224, 224))
-            images.append(image)
-            
-            # Load label
-            with open(label_path, 'r') as file:
-                boxes = []
-                for line in file.readlines():
-                    _, x_center, y_center, width, height = map(float, line.strip().split())
-                    # Convert from YOLO format to [xmin, ymin, xmax, ymax]
-                    xmin = (x_center - width / 2) * 224
-                    ymin = (y_center - height / 2) * 224
-                    xmax = (x_center + width / 2) * 224
-                    ymax = (y_center + height / 2) * 224
-                    boxes.append([xmin, ymin, xmax, ymax])
-                labels.append(boxes[0])
-    
-    images = np.array(images)
-    labels = np.array(labels)
-    return images, labels
 
-# Load the dataset
-images_path = './uas_dataset/train/images'
-labels_path = './uas_dataset/train/labels'
-images, labels = load_dataset(images_path, labels_path)
+# Define paths
+train_dir = '../datasets/Food-5K/organized_train'
+val_dir = '../datasets/Food-5K/organized_val'
 
+# Image data generators
+train_datagen = ImageDataGenerator(rescale=1./255)
+val_datagen = ImageDataGenerator(rescale=1./255)
+
+train_generator = train_datagen.flow_from_directory(
+    train_dir,
+    target_size=(224, 224),
+    batch_size=32,
+    class_mode='binary'
+)
+
+val_generator = val_datagen.flow_from_directory(
+    val_dir,
+    target_size=(224, 224),
+    batch_size=32,
+    class_mode='binary'
+)
 # %%
+# Load MobileNetV2
+base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
 
-# Normalize the images
-images = images / 255.0
-
-# Define the MobileNetV2 model
-base_model = tf.keras.applications.MobileNetV2(input_shape=(224, 224, 3), include_top=False, weights='imagenet')
-base_model.trainable = False
-
-# Add custom layers on top of the base model
+# Add custom top layers
 x = base_model.output
-x = tf.keras.layers.GlobalAveragePooling2D()(x)
-x = tf.keras.layers.Dense(1024, activation='relu')(x)
-predictions = tf.keras.layers.Dense(4, activation='sigmoid')(x)  # 4 values for bounding box + 1 confidence score
+x = GlobalAveragePooling2D()(x)
+x = Dense(1024, activation='relu')(x)
+predictions = Dense(1, activation='sigmoid')(x)
 
-# Define the final model
-model = tf.keras.Model(inputs=base_model.input, outputs=predictions)
+# Define the model
+model = Model(inputs=base_model.input, outputs=predictions)
+
+# Freeze the base model layers
+for layer in base_model.layers:
+    layer.trainable = False
 
 # Compile the model
-model.compile(optimizer=tf.keras.optimizers.Adam(), loss='mean_squared_error')
+model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
 
-# Define a callback to collect metrics
-class MetricsCallback(tf.keras.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        self.model.evaluate(self.validation_data)
+# Train the model and save the history
+history = model.fit(train_generator, epochs=10, validation_data=val_generator)
 
-# Train the model
-history = model.fit(images, labels, epochs=100, batch_size=1, validation_split=0.2)
+model.save('my_model')
 
-# Plot training & validation loss values
-plt.figure(figsize=(12, 6))
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('Model Loss')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.legend(['Train', 'Validation'], loc='upper right')
+# Extract metrics from history
+acc = history.history['accuracy']
+val_acc = history.history['val_accuracy']
+loss = history.history['loss']
+val_loss = history.history['val_loss']
+epochs = range(len(acc))
+
+# Plot accuracy
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+plt.plot(epochs, acc, label='Training Accuracy')
+plt.plot(epochs, val_acc, label='Validation Accuracy')
+plt.title('Training and Validation Accuracy')
+plt.legend()
+
+# Plot loss
+plt.subplot(1, 2, 2)
+plt.plot(epochs, loss, label='Training Loss')
+plt.plot(epochs, val_loss, label='Validation Loss')
+plt.title('Training and Validation Loss')
+plt.legend()
+
 plt.show()
 
-
 # %%
+# Define a representative dataset function
+def representative_data_gen():
+    dataset_list = tf.data.Dataset.list_files(os.path.join(train_dir, '*', '*'))
 
-# Convert the model to TFLite
-converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    def preprocess_image(image_path):
+        image = tf.io.read_file(image_path)
+        image = tf.image.decode_jpeg(image, channels=3)
+        image = tf.image.resize(image, [224, 224])
+        image = image / 255.0  # Normalize to [0, 1]
+        image = tf.cast(image, tf.float32)  # Ensure the images are float32
+        image = tf.expand_dims(image, axis=0)  # Add batch dimension
+        return image
+
+    for image_path in dataset_list.take(100):  # Adjust the number of samples as needed
+        yield [preprocess_image(image_path)]
+
+# Convert the model to TensorFlow Lite format with uint8 quantization for the first layer
+converter = tf.lite.TFLiteConverter.from_saved_model('my_model')
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+converter.representative_dataset = representative_data_gen
+converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+converter.inference_input_type = tf.uint8
+# converter.inference_output_type = tf.uint8
 tflite_model = converter.convert()
 
-# Save the TFLite model
-with open('model.tflite', 'wb') as f:
+# Save the TensorFlow Lite model
+with open('food_detector_uint8_first_layer.tflite', 'wb') as f:
     f.write(tflite_model)
-
-print("Model training and conversion to TFLite completed.")
