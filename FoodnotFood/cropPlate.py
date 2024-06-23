@@ -29,13 +29,12 @@ plt.show()
 
 from ultralytics import YOLO
 
-model = YOLO("./scrap100.pt")
+model = YOLO("../models/yolo_dataset5K/best.pt")
 
-results = model(cropped_image)
+results = model('./arepa.jpg')
 
 names = results[0].names
 probs = results[0].probs.top5
 conf = results[0].probs.top5conf.tolist()
 print([{'prediction': names[key], 'prob': conf[i]} for i,key in enumerate(probs)])
-
 

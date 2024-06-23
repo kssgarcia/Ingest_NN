@@ -43,6 +43,7 @@ val_indices = indices[split_idx:]
 
 train_data = dataset_df.iloc[train_indices]
 val_data = dataset_df.iloc[val_indices]
+print(len(train_data))
 
 # Setup model and processor
 device = 'cuda' if torch.cuda.is_available() else 'cpu'

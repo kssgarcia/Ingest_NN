@@ -7,7 +7,6 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 import matplotlib.pyplot as plt
 
-
 # Define paths
 train_dir = '../datasets/Food-5K/organized_train'
 val_dir = '../datasets/Food-5K/organized_val'
@@ -96,15 +95,15 @@ def representative_data_gen():
     for image_path in dataset_list.take(100):  # Adjust the number of samples as needed
         yield [preprocess_image(image_path)]
 
-# Convert the model to TensorFlow Lite format with uint8 quantization for the first layer
+# Convert the model to TensorFlow Lite format with uint8 quantization for all layers except the output layer
 converter = tf.lite.TFLiteConverter.from_saved_model('my_model')
 converter.optimizations = [tf.lite.Optimize.DEFAULT]
 converter.representative_dataset = representative_data_gen
 converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
 converter.inference_input_type = tf.uint8
-# converter.inference_output_type = tf.uint8
+converter.inference_output_type = tf.float32  # Keep the output layer as float32
 tflite_model = converter.convert()
 
 # Save the TensorFlow Lite model
-with open('food_detector_uint8_first_layer.tflite', 'wb') as f:
+with open('food_detector_uint8_except_output.tflite', 'wb') as f:
     f.write(tflite_model)

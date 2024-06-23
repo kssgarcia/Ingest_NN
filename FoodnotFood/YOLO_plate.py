@@ -23,7 +23,7 @@ print(results[0].boxes.xywh)  # print boxes
 # %%
 from ultralytics import YOLO
 
-model = YOLO("../models/old/bestDataNewonly.pt")
+model = YOLO("../models/old/USCOMP_bestmodel3.pt")
 
 results = model(source=1, show=True, conf=0.7)
 
