@@ -10,7 +10,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 import matplotlib.pyplot as plt
 
-# --------------------- #
+# %% ------------------ #
 #    Setup & Config     #
 # --------------------- #
 
@@ -26,7 +26,7 @@ os.makedirs(log_dir, exist_ok=True)
 train_dir = '../../Food-5K/organized_train'
 val_dir = '../../Food-5K/organized_val'
 
-# --------------------- #
+# %% ------------------ #
 #    Data Generators    #
 # --------------------- #
 
@@ -47,9 +47,7 @@ val_generator = val_datagen.flow_from_directory(
     class_mode='binary'
 )
 
-# %%
-
-# --------------------- #
+# %% ------------------ #
 #   Model Definition    #
 # --------------------- #
 
@@ -75,15 +73,13 @@ for layer in base_model.layers:
 # Compile
 model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
 
-# %%
-
-# --------------------- #
+# %% ------------------ #
 #       Training        #
 # --------------------- #
 
 history = model.fit(
     train_generator,
-    epochs=10,
+    epochs=100,
     validation_data=val_generator
 )
 
@@ -91,9 +87,7 @@ history = model.fit(
 saved_model_dir = os.path.join(log_dir, "saved_model")
 model.export(saved_model_dir)
 
-# %%
-
-# --------------------- #
+# %% ------------------ #
 #   Plot & Save Curves  #
 # --------------------- #
 
@@ -122,7 +116,7 @@ plot_path = os.path.join(log_dir, "training_curves.png")
 plt.savefig(plot_path)
 plt.close()
 
-# --------------------- #
+# %% ------------------ #
 #   Save Metrics JSON   #
 # --------------------- #
 
@@ -141,8 +135,7 @@ metrics_path = os.path.join(log_dir, "metrics.json")
 with open(metrics_path, "w") as f:
     json.dump(training_metrics, f, indent=4)
 
-# %%
-# --------------------- #
+# %% ------------------ #
 #   TFLite Conversion   #
 # --------------------- #
 

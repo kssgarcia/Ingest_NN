@@ -1,0 +1,6 @@
+{
+    "model_version": "v1.0_test",
+    "timestamp": "2025-02-14 12:05:07.589051",
+    "data_dir": "../../Food-5K",
+    "log_dir": "model_log_torch/model_v1.0_test"
+}
