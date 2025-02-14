@@ -3,6 +3,7 @@ import os
 import json
 import datetime
 import tensorflow as tf
+from tensorflow import keras
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications import MobileNetV3Small
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
@@ -71,17 +72,24 @@ for layer in base_model.layers:
     layer.trainable = False
 
 # Compile
-model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
 
 # %% ------------------ #
 #       Training        #
 # --------------------- #
 
-history = model.fit(
-    train_generator,
-    epochs=100,
-    validation_data=val_generator
+best_weights_dir = os.path.join(log_dir, 'best_weights')
+os.makedirs(best_weights_dir, exist_ok=True)
+checkpoint_callback = keras.callbacks.ModelCheckpoint(
+    os.path.join(best_weights_dir, '.weights.h5'),
+    monitor="val_accuracy",
+    mode="max",
+    save_best_only=True,
+    save_weights_only=True,
+    verbose=1,
 )
+
+model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
+history = model.fit(train_generator, epochs=100, batch_size=32, validation_data=val_generator, callbacks=[checkpoint_callback])
 
 # Save the standard Keras (SavedModel) in the logs directory
 saved_model_dir = os.path.join(log_dir, "saved_model")
