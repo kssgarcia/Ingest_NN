@@ -1,9 +1,48 @@
-# Models
-- USCOMP_bestmodel#.pt: is a model make plate detection it is train with USCOMP dataset bigger the number better the 3 is the best of all 
-- bestDataNew.pt: is a model make plate detection it is pretrained with USCOMP dataset
-- bestDataNewonly.pt: is a model make plate detection it is not pretrained
-- justfoodrecog.pt: is a model make food detection it is not pretrained
-- scrap100.pt: is a model make food detection with scrapp test data 100 epochs
-- scrap174.pt: is a model make food detection with scrapp test data 176 epochs. bestscrap174 is the same
-- scrap_ingredients1.pt: is a model make ingredients detection with scrapp test data 176 epochs
-- scrap174_clear.pt: is a model make food detection with scrapp test data 176 epochs. Is clear using CLIP
+# FoodnotFood
+
+- Updates February 13 2025
+  - Implemented MobileNetV2 classification model
+  - Added real-time camera processing
+  - Optimized model size to 4MB
+
+## Features
+
+- Lightweight model (4MB)
+- Real-time classification
+- On-device processing
+- Plate detection and cropping
+- Optimized for mobile devices
+
+## Project Structure
+
+```
+FoodnotFood/
+├── models/
+│   ├── classifier.tflite            # Main classification model
+│   ├── food_detector_uint8.tflite   # Alternative model
+│   └── android.tflite              # Android-optimized model
+├── scripts/
+│   ├── cropPlate.py                # Image preprocessing
+│   ├── loadtflite.py               # Model testing utilities
+│   ├── MobileNet.py                # Model architecture
+│   └── organized_dataset.py        # Dataset organization
+└── notebooks/
+    └── Model_Maker_Object_Detection.ipynb
+```
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.7+
+- TensorFlow 2.x
+- Android Studio (for mobile deployment)
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/yourusername/FoodnotFood.git
+cd FoodnotFood
+```
