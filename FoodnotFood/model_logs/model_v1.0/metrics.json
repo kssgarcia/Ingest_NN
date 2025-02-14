@@ -1,0 +1,9 @@
+{
+    "model_version": "v1.0",
+    "final_training_accuracy": 0.7906666398048401,
+    "final_validation_accuracy": 0.6769999861717224,
+    "final_training_loss": 0.44890469312667847,
+    "final_validation_loss": 0.6250556707382202,
+    "epochs": 10,
+    "timestamp": "2025-02-13T22:31:17.302496"
+}
