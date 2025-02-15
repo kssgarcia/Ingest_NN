@@ -84,7 +84,7 @@ epochs = 200
 
 decay_steps = (train_data_len // batch_size)*5
 lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate=1e-5,
+        initial_learning_rate=1e-3,
         decay_steps=decay_steps,
         decay_rate=0.86,  
         staircase=True  
