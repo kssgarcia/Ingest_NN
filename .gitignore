@@ -1,0 +1,12 @@
+models/
+IngredientsClassification/dataset
+IngredientsClassification/Recipes10T
+IngredientsClassification/results
+IngredientsClassification/testRecipes
+IngredientsClassification/FoodClassyScrapping
+IngredientsClassification/trains
+FoodnotFood/model_log_torch
+FoodnotFood/__pycache__
+FoodnotFood/model_logs
+FoodnotFood/EfficientDet
+datasets
