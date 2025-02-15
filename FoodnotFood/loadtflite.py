@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 # Load TFLite model
-model_path = 'nutrify/models/2022-01-13-nutrify_model_100_foods_v0.tflite'
+model_path = 'model_logs/model_v1.1_small/food_detector_mobilenetv3_v1.1_small.tflite'
 interpreter = tf.lite.Interpreter(model_path=model_path)
 interpreter.allocate_tensors()
 
@@ -12,21 +12,28 @@ interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
-# Open the camera
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(1) 
 
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         break
     
-    # Preprocess the frame
+    #  MobilenetV4
+    # input_shape = input_details[0]['shape']
+    # input_data = cv2.resize(frame, (input_shape[2], input_shape[3])) 
+    # input_data = np.transpose(input_data, (2, 0, 1)) 
+    # input_data = np.expand_dims(input_data, axis=0)  
+    # input_data = input_data.astype(np.float32) / 255.0
+
+    #  MobilenetV3
     input_shape = input_details[0]['shape']
     input_data = cv2.resize(frame, (input_shape[1], input_shape[2]))
     input_data = np.expand_dims(input_data, axis=0)
     input_data = (input_data * 255.0).astype(np.uint8)  # Convert to UINT8
 
-    # Set the input tensor
+    print("Fixed input shape:", input_data.shape)
+
     interpreter.set_tensor(input_details[0]['index'], input_data)
 
     # Run inference

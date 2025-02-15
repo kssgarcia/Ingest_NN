@@ -165,6 +165,12 @@ with open(metrics_path, "w") as f:
     json.dump(training_metrics, f, indent=4)
 
 # %% ------------------ #
+#   Load model   #
+# --------------------- #
+saved_model_dir = os.path.join(log_dir, "saved_model")
+loaded_model = tf.keras.layers.TFSMLayer(saved_model_dir)
+
+# %% ------------------ #
 #   TFLite Conversion   #
 # --------------------- #
 
@@ -175,7 +181,6 @@ def representative_data_gen():
         image = tf.io.read_file(image_path)
         image = tf.image.decode_jpeg(image, channels=3)
         image = tf.image.resize(image, [224, 224])
-        image = image / 255.0
         image = tf.cast(image, tf.float32)
         image = tf.expand_dims(image, axis=0)
         return image
@@ -189,7 +194,7 @@ converter.optimizations = [tf.lite.Optimize.DEFAULT]
 converter.representative_dataset = representative_data_gen
 converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
 converter.inference_input_type = tf.uint8
-converter.inference_output_type = tf.float32
+converter.inference_output_type = tf.uint8
 
 tflite_model = converter.convert()
 
