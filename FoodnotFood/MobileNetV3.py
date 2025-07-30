@@ -25,8 +25,8 @@ log_dir = os.path.join(log_base_dir, f"model_{model_version}")
 os.makedirs(log_dir, exist_ok=True)
 
 # Define your dataset paths
-train_dir = '../../Food-5K/organized_train'
-val_dir = '../../Food-5K/organized_val'
+train_dir = '../Food-5K/organized_train'
+val_dir = '../Food-5K/organized_val'
 
 # %% ------------------ #
 #    Data Generators    #

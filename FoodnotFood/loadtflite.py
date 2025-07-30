@@ -5,6 +5,7 @@ import tensorflow as tf
 
 # Load TFLite model
 model_path = 'model_logs/model_v1.1_small/food_detector_mobilenetv3_v1.1_small.tflite'
+# model_path = 'classifier.tflite'
 interpreter = tf.lite.Interpreter(model_path=model_path)
 interpreter.allocate_tensors()
 
@@ -12,7 +13,7 @@ interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
-cap = cv2.VideoCapture(1) 
+cap = cv2.VideoCapture(0) 
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -53,3 +54,30 @@ while cap.isOpened():
 # Release the camera and close all OpenCV windows
 cap.release()
 cv2.destroyAllWindows()
+# %%
+import cv2
+
+for i in range(5):
+    cap = cv2.VideoCapture(i)
+    if cap.isOpened():
+        print(f"Camera found at index {i}")
+        cap.release()
+
+# %%
+import cv2
+
+for i in [0, 1]:
+    cap = cv2.VideoCapture(i)
+    if cap.isOpened():
+        print(f"Showing camera index {i}. Press 'q' to close.")
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            cv2.imshow(f'Camera {i}', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        cap.release()
+        cv2.destroyAllWindows()
+
+# %%
